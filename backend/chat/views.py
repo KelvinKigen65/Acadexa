@@ -2,7 +2,7 @@ from django.db import transaction
 from django.core.exceptions import ImproperlyConfigured
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -10,6 +10,7 @@ from rest_framework.viewsets import ModelViewSet
 from chat.models import Citation, Conversation, Message
 from chat.serializers import AskQuestionSerializer, ConversationDetailSerializer, ConversationSerializer, MessageSerializer
 from rag.workflow import GenerationError, answer_question
+from documents.models import Document
 
 
 class RagUnavailable(APIException):
@@ -38,10 +39,14 @@ class ConversationViewSet(ModelViewSet):
         conversation = self.get_object()
         payload = AskQuestionSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
+        document_id = payload.validated_data.get("document_id")
+        if document_id and not Document.objects.filter(pk=document_id, course_id=conversation.course_id, course__owner=request.user, status=Document.Status.READY).exists():
+            raise ValidationError({"document_id": "Select a ready PDF from this course."})
         question = payload.validated_data["question"]
+        focus_topic = payload.validated_data.get("focus_topic", "")
 
         try:
-            result = answer_question(question=question, user_id=request.user.id, course_id=conversation.course_id)
+            result = answer_question(question=question, user_id=request.user.id, course_id=conversation.course_id, document_id=document_id, focus_topic=focus_topic)
         except (GenerationError, ImproperlyConfigured, RuntimeError) as exc:
             raise RagUnavailable() from exc
 

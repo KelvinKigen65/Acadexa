@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import TypedDict
 from urllib.error import HTTPError, URLError
@@ -35,6 +36,8 @@ class RagState(TypedDict, total=False):
     question: str
     user_id: int
     course_id: int
+    document_id: int | None
+    focus_topic: str
     retrieved: list[RetrievedChunk]
     sufficient: bool
     answer: str
@@ -48,15 +51,14 @@ class RagResult:
     generation_mode: str
 
 
-def retrieve_chunks(*, question: str, user_id: int, course_id: int) -> list[RetrievedChunk]:
-    vector = embedding_provider().embed_many([question])[0]
+def retrieve_chunks(*, question: str, user_id: int, course_id: int, document_id: int | None = None, focus_topic: str = "") -> list[RetrievedChunk]:
+    vector = embedding_provider().embed_many([f"{focus_topic} {question}".strip()])[0]
     max_distance = 1 - settings.RAG_MIN_RELEVANCE
+    filters = {"document__course_id": course_id, "document__course__owner_id": user_id, "document__status": Document.Status.READY}
+    if document_id is not None:
+        filters["document_id"] = document_id
     matches = (
-        DocumentChunk.objects.filter(
-            document__course_id=course_id,
-            document__course__owner_id=user_id,
-            document__status=Document.Status.READY,
-        )
+        DocumentChunk.objects.filter(**filters)
         .select_related("document")
         .annotate(distance=CosineDistance("embedding", vector))
         .filter(distance__lte=max_distance)
@@ -83,12 +85,11 @@ def format_context(chunks: list[RetrievedChunk]) -> str:
 
 
 def extractive_answer(chunks: list[RetrievedChunk]) -> str:
-    """Safe fallback when no LLM is configured: expose retrieved material without invention."""
-    excerpts = "\n\n".join(
-        f"From {chunk.document_title}, page {chunk.page_number}: {chunk.content}"
-        for chunk in chunks[:2]
-    )
-    return f"I found the following relevant material in your course documents:\n\n{excerpts}"
+    """Return one short evidence-backed sentence while no LLM is configured."""
+    text = " ".join(chunks[0].content.split())
+    sentences = [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", text) if sentence.strip()]
+    answer = sentences[0] if sentences else text
+    return answer[:280].rsplit(" ", 1)[0].rstrip() if len(answer) > 280 else answer
 
 
 def generate_grounded_answer(question: str, chunks: list[RetrievedChunk]) -> tuple[str, str]:
@@ -134,7 +135,7 @@ def generate_grounded_answer(question: str, chunks: list[RetrievedChunk]) -> tup
 
 
 def retrieve_node(state: RagState) -> RagState:
-    return {"retrieved": retrieve_chunks(question=state["question"], user_id=state["user_id"], course_id=state["course_id"])}
+    return {"retrieved": retrieve_chunks(question=state["question"], user_id=state["user_id"], course_id=state["course_id"], document_id=state.get("document_id"), focus_topic=state.get("focus_topic", ""))}
 
 
 def assess_relevance_node(state: RagState) -> RagState:
@@ -174,11 +175,11 @@ def build_rag_graph():
 RAG_GRAPH = build_rag_graph()
 
 
-def answer_question(*, question: str, user_id: int, course_id: int) -> RagResult:
+def answer_question(*, question: str, user_id: int, course_id: int, document_id: int | None = None, focus_topic: str = "") -> RagResult:
     if not question.strip():
         raise ValueError("A question is required.")
     try:
-        result = RAG_GRAPH.invoke({"question": question.strip(), "user_id": user_id, "course_id": course_id})
+        result = RAG_GRAPH.invoke({"question": question.strip(), "user_id": user_id, "course_id": course_id, "document_id": document_id, "focus_topic": focus_topic.strip()})
     except (EmbeddingError, GenerationError, ImproperlyConfigured):
         raise
     return RagResult(

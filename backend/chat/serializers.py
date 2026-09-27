@@ -48,6 +48,8 @@ class ConversationDetailSerializer(ConversationSerializer):
 
 class AskQuestionSerializer(serializers.Serializer):
     question = serializers.CharField(max_length=3000, trim_whitespace=True)
+    document_id = serializers.IntegerField(required=False, min_value=1)
+    focus_topic = serializers.CharField(required=False, allow_blank=True, max_length=200, trim_whitespace=True)
 
     def validate_question(self, value: str) -> str:
         if not value:

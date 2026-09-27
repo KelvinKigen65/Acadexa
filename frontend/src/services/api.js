@@ -57,8 +57,11 @@ export async function uploadPdf({ courseId, file }) {
   return data;
 }
 
-export async function askCourseQuestion(conversationId, question) {
-  const { data } = await client.post(`/conversations/${conversationId}/ask/`, { question });
+export async function askCourseQuestion(conversationId, question, documentId, focusTopic) {
+  const payload = { question };
+  if (documentId) payload.document_id = documentId;
+  if (focusTopic?.trim()) payload.focus_topic = focusTopic.trim();
+  const { data } = await client.post(`/conversations/${conversationId}/ask/`, payload);
   return data;
 }
 
@@ -72,4 +75,9 @@ export function apiErrorMessage(error) {
   if (error.code === 'ECONNABORTED') return 'Acadexa took too long to respond. Please try again.';
   if (!error.response) return 'Acadexa cannot reach the local API. Start the Django and PostgreSQL services, then try again.';
   return 'That request could not be completed. Please try again.';
+}
+
+export async function listDocuments() {
+  const { data } = await client.get('/documents/');
+  return data;
 }

@@ -9,6 +9,7 @@ from __future__ import annotations
 import cgi
 
 import base64
+import re
 import hashlib
 import json
 import os
@@ -65,7 +66,16 @@ def password_matches(password: str, stored: str) -> bool:
 
 
 def token_set(value: str) -> set[str]:
-    return {word.lower() for word in value.replace("/", " ").replace("-", " ").split() if len(word) > 2}
+    return {word.lower() for word in re.findall(r"[A-Za-z0-9]+", value) if len(word) > 2}
+
+
+def concise_excerpt(question_terms: set[str], content: str) -> str:
+    text = " ".join(content.split())
+    sentences = [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", text) if sentence.strip()]
+    if not sentences:
+        return text[:280].rsplit(" ", 1)[0].rstrip() if len(text) > 280 else text
+    best = max(sentences, key=lambda sentence: len(question_terms & token_set(sentence)))
+    return best[:280].rsplit(" ", 1)[0].rstrip() if len(best) > 280 else best
 
 
 def split_page(value: str, size: int = 900, overlap: int = 160) -> list[str]:
@@ -163,6 +173,10 @@ class AcadexaDevelopmentHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/conversations":
             self.respond(200, [conversation for conversation in state["conversations"] if conversation["user_id"] == user["id"]])
+            return
+        if path == "/api/documents":
+            course_ids = {course["id"] for course in state["courses"] if course["owner_id"] == user["id"]}
+            self.respond(200, [document for document in state["documents"] if document["course"] in course_ids])
             return
 
     def do_POST(self) -> None:
@@ -295,22 +309,35 @@ class AcadexaDevelopmentHandler(BaseHTTPRequestHandler):
         if not conversation or not question:
             self.respond(400, {"detail": "A valid conversation and question are required."})
             return
-        candidates = [chunk for chunk in state["chunks"] if chunk["course_id"] == conversation["course"]]
-        question_terms = token_set(question)
+        selected_document_id = body.get("document_id")
+        if selected_document_id is not None:
+            try:
+                selected_document_id = int(selected_document_id)
+            except (TypeError, ValueError):
+                self.respond(400, {"document_id": ["Choose a valid uploaded PDF."]})
+                return
+            selected_document = next((document for document in state["documents"] if document["id"] == selected_document_id and document["course"] == conversation["course"]), None)
+            if not selected_document:
+                self.respond(404, {"detail": "Selected PDF not found in this course."})
+                return
+            candidates = [chunk for chunk in state["chunks"] if chunk["document_id"] == selected_document_id]
+        else:
+            candidates = [chunk for chunk in state["chunks"] if chunk["course_id"] == conversation["course"]]
+        focus_topic = str(body.get("focus_topic", "")).strip()
+        question_terms = token_set(f"{focus_topic} {question}")
         ranked = []
         for chunk in candidates:
             score = len(question_terms & token_set(chunk["content"]))
             if score:
                 ranked.append((score, chunk))
-        top_chunks = sorted(ranked, key=lambda item: item[0], reverse=True)[:5]
+        top_chunks = sorted(ranked, key=lambda item: item[0], reverse=True)[:1]
         assistant_id = allocate_id(state)
         if top_chunks:
-            excerpts, citations = [], []
-            for score, chunk in top_chunks:
-                document = next(item for item in state["documents"] if item["id"] == chunk["document_id"])
-                excerpts.append(f"From {document['title']}, page {chunk['page_number']}: {chunk['content'][:700]}")
-                citations.append({"id": allocate_id(state), "chunk_id": chunk["id"], "document_id": document["id"], "document_title": document["title"], "page_number": chunk["page_number"], "relevance": round(score / max(len(question_terms), 1), 3)})
-            content, generation_mode = "I found these relevant passages in your uploaded materials:\n\n" + "\n\n".join(excerpts), "retrieval_only"
+            score, chunk = top_chunks[0]
+            document = next(item for item in state["documents"] if item["id"] == chunk["document_id"])
+            content = concise_excerpt(question_terms, chunk["content"])
+            citations = [{"id": allocate_id(state), "chunk_id": chunk["id"], "document_id": document["id"], "document_title": document["title"], "page_number": chunk["page_number"], "relevance": round(score / max(len(question_terms), 1), 3)}]
+            generation_mode = "retrieval_only"
         else:
             content, citations, generation_mode = "I couldn’t find sufficiently relevant information in your uploaded course materials to answer that confidently.", [], "insufficient_context"
         user_message = {"id": allocate_id(state), "conversation_id": conversation_id, "role": "user", "content": question, "citations": []}

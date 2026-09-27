@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { apiErrorMessage, askCourseQuestion, authenticate, createConversation, provisionWorkspace, uploadPdf } from './services/api.js';
+import { apiErrorMessage, askCourseQuestion, authenticate, createConversation, listDocuments, provisionWorkspace, uploadPdf } from './services/api.js';
 
 const iconPaths = {
   archive: <><path d="M4 7.5h16"/><path d="M5.5 7.5v10.7c0 .9.7 1.6 1.6 1.6h9.8c.9 0 1.6-.7 1.6-1.6V7.5"/><path d="M3.8 4.2h16.4v3.3H3.8z"/><path d="M9 12h6"/></>,
@@ -138,6 +138,9 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isAnswering, setIsAnswering] = useState(false);
+  const [resources, setResources] = useState([]);
+  const [selectedResourceId, setSelectedResourceId] = useState(null);
+  const [focusTopic, setFocusTopic] = useState('');
   const fileInput = useRef(null);
 
   const currentCourse = courses.find((course) => course.id === selectedCourse) ?? courses[0];
@@ -173,9 +176,12 @@ function App() {
     try {
       setIsAuthenticating(true);
       const user = await authenticate({ ...authForm, register: authMode === 'register' });
+      const documents = await listDocuments();
       const setup = await provisionWorkspace();
       const linkedCourse = { id: String(setup.course.id), name: setup.course.title, code: setup.course.code, color: setup.course.color, count: setup.course.documents_count };
       setAccount(user);
+      setResources(documents.filter((document) => document.course === setup.course.id));
+      setSelectedResourceId((documents.find((document) => document.course === setup.course.id) ?? {}).id ?? null);
       setWorkspace({ courseId: setup.course.id, conversationId: setup.conversation.id });
       setCourses((items) => [linkedCourse, ...items.filter((course) => course.id !== linkedCourse.id)]);
       setSelectedCourse(linkedCourse.id);
@@ -206,9 +212,15 @@ function App() {
       return;
     }
 
+    if (!selectedResourceId) {
+      setMessages((items) => [...items, { id: `answer-${timestamp}`, role: 'assistant', text: 'Select one uploaded PDF before asking a question, so I can keep the answer tied to that resource.', citations: [], mode: 'insufficient-context' }]);
+      notify('Select an uploaded PDF to ask from it.');
+      return;
+    }
+
     try {
       setIsAnswering(true);
-      const answer = await askCourseQuestion(workspace.conversationId, cleaned);
+      const answer = await askCourseQuestion(workspace.conversationId, cleaned, selectedResourceId, focusTopic);
       const apiSources = answer.citations.map(sourceFromCitation);
       setSources((items) => [...apiSources, ...items.filter((source) => !apiSources.some((next) => next.id === source.id))]);
       setMessages((items) => [...items, {
@@ -239,6 +251,8 @@ function App() {
     try {
       const document = await uploadPdf({ courseId: workspace.courseId, file });
       setUploadedFile(`${document.original_filename} · ${document.status}`);
+      setResources((items) => [document, ...items.filter((item) => item.id !== document.id)]);
+      setSelectedResourceId(document.id);
       if (document.status === 'failed') {
         notify(document.extraction_error || 'Acadexa could not process that PDF.');
         return;
@@ -276,33 +290,22 @@ function App() {
           <button className="icon-button sidebar-more" type="button" aria-label="More workspace options"><Icon name="dots" size={20}/></button>
         </div>
 
-        <button className="new-chat" type="button" onClick={newConversation}><Icon name="plus" size={17}/>New conversation</button>
+        <div className="sidebar-upload">
+          <div><span className="upload-icon"><Icon name="upload" size={17}/></span><p><strong>Add a new source</strong><small>PDF lecture notes or study guides</small></p></div>
+          <button type="button" onClick={() => account ? fileInput.current?.click() : setShowAuth(true)}>Upload</button>
+        </div>
 
         <nav className="primary-nav" aria-label="Primary">
           <a className="nav-link active" href="#workspace"><Icon name="bubble"/>Ask Acadexa</a>
-          <a className="nav-link" href="#library"><Icon name="archive"/>My library</a>
-          <a className="nav-link" href="#courses"><Icon name="grid"/>All courses</a>
         </nav>
 
-        <section className="course-nav" id="courses" aria-labelledby="courses-heading">
-          <div className="section-label"><span id="courses-heading">Your courses</span><button type="button" onClick={addCourse} aria-label="Add a course"><Icon name="plus" size={16}/></button></div>
+        <section className="course-nav" id="resources" aria-labelledby="resources-heading">
+          <div className="section-label"><span id="resources-heading">Your resources</span><button type="button" onClick={() => account ? fileInput.current?.click() : setShowAuth(true)} aria-label="Upload resource"><Icon name="upload" size={16}/></button></div>
           <div className="course-list">
-            {courses.map((course) => (
-              <button className={`course-link ${selectedCourse === course.id ? 'selected' : ''}`} key={course.id} onClick={() => setSelectedCourse(course.id)} type="button">
-                <span className="course-dot" style={{ background: course.color }}/><span>{course.name}</span><small>{course.count}</small>
-              </button>
-            ))}
+            {!account ? <p className="sidebar-empty">Sign in to view your saved PDFs.</p> : resources.length ? resources.map((document) => <button className={`course-link ${selectedResourceId === document.id ? 'selected' : ''}`} key={document.id} onClick={() => setSelectedResourceId(document.id)} type="button"><Icon name="file" size={15}/><span>{document.title}</span><small>{document.page_count}p</small></button>) : <p className="sidebar-empty">No PDFs yet. Update resources to add one.</p>}
           </div>
         </section>
-
-        <section className="recent-chats" aria-labelledby="recent-heading">
-          <div className="section-label"><span id="recent-heading">Recent</span><button type="button" aria-label="Search conversations" onClick={() => notify('Conversation search will be available with the API.')}><Icon name="search" size={16}/></button></div>
-          {conversations.map((conversation) => (
-            <button className={`recent-link ${activeConversation === conversation.id ? 'selected' : ''}`} key={conversation.id} onClick={() => { setActiveConversation(conversation.id); if (conversation.id === 1) setMessages([{ id: 'question-1', role: 'user', text: 'What is the difference between TCP and UDP?' }, firstAnswer]); }} type="button">
-              <span>{conversation.title}</span><small>{conversation.date}</small>
-            </button>
-          ))}
-        </section>
+        {false && <label className="topic-focus sidebar-topic"><span>Focus topic</span><input list="topic-suggestions" value={focusTopic} onChange={(event) => setFocusTopic(event.target.value)} placeholder="e.g. Warehousing"/><datalist id="topic-suggestions"><option value="Warehousing"/><option value="Inventory management"/><option value="Transportation"/><option value="Procurement"/><option value="Supply chain"/></datalist></label>}
 
         <div className="sidebar-user">
           <div className="avatar">KK</div><div><strong>Kelvin Kigen</strong><span>Student account</span></div><Icon name="chevron" size={17}/>
@@ -347,7 +350,7 @@ function App() {
             <div className="composer-bottom"><button className="attach-button" type="button" onClick={() => fileInput.current?.click()}><Icon name="plus" size={16}/>Add context</button><span className="composer-hint">⌘ ↵ to send</span><button className="send-button" type="submit" aria-label="Send question"><Icon name="send" size={17}/></button></div>
           </form>
           <input ref={fileInput} type="file" accept="application/pdf" className="visually-hidden" onChange={uploadDocument}/>
-          <p className="grounding-note"><Icon name="spark" size={14}/>Acadexa answers from your selected course library and shows its sources.</p>
+          <p className="grounding-note"><Icon name="spark" size={14}/>{focusTopic ? `Focused on: ${focusTopic}.` : 'Select a resource and optionally set a topic before asking.'}</p>
         </div>
       </section>
 
@@ -357,6 +360,8 @@ function App() {
         <div className="source-list">
           {evidenceSources.map((source, index) => <button className={`source-item ${selectedSource === source.id ? 'open' : ''}`} key={source.id} onClick={() => setSelectedSource(source.id)} type="button"><span className="source-number">{index + 1}</span><span className="source-info"><strong>{source.title}</strong><small>{source.pages} · {source.meta}</small></span><Icon name="chevron" size={16}/></button>)}
         </div>
+        {workspace && <div className="resource-picker"><p>Ask from this uploaded PDF</p>{resources.length ? resources.map((document) => <button className={`resource-option ${selectedResourceId === document.id ? 'selected' : ''}`} type="button" key={document.id} onClick={() => setSelectedResourceId(document.id)}><Icon name="file" size={15}/><span><strong>{document.title}</strong><small>{document.page_count} page{document.page_count === 1 ? '' : 's'} · {document.status}</small></span></button>) : <span className="resource-empty">Upload a PDF, then select it here.</span>}</div>}
+        {workspace && <label className="topic-focus"><span>Focus topic</span><input list="topic-suggestions" value={focusTopic} onChange={(event) => setFocusTopic(event.target.value)} placeholder="e.g. Warehousing"/><datalist id="topic-suggestions"><option value="Warehousing"/><option value="Inventory management"/><option value="Transportation"/><option value="Procurement"/><option value="Supply chain"/></datalist></label>}
         {canPreviewSource && <div className="document-preview">
           <div className="paper">
             <div className="paper-top"><span>CS 304 · COMPUTER NETWORKS</span><span>{activeSource.pages}</span></div>
@@ -366,7 +371,6 @@ function App() {
           </div>
           <button className="open-source" type="button" onClick={() => notify(`${activeSource.title} would open at ${activeSource.pages}.`)}><Icon name="file" size={16}/>Open source document<Icon name="arrow" size={16}/></button>
         </div>}
-        <div className="upload-panel" id="library"><div><span className="upload-icon"><Icon name="upload" size={17}/></span><p><strong>{uploadedFile ?? 'Add a new source'}</strong><small>{uploadedFile ? 'Ready for extraction' : 'PDF lecture notes or study guides'}</small></p></div><button type="button" onClick={() => fileInput.current?.click()}>Upload</button></div>
       </aside>}
 
       {!showInspector && <button className="open-inspector" type="button" onClick={() => setShowInspector(true)}><Icon name="book" size={17}/>Show sources</button>}
