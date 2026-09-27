@@ -1,0 +1,13 @@
+{
+  "score": 94,
+  "verdict": "pass",
+  "category_match": true,
+  "differences": [],
+  "suggestions": [
+    "Keep the source inspector collapsed by default on compact viewports as future responsive changes are made."
+  ],
+  "reasoning": "The desktop view has a clear study-and-evidence split, while the compact view now prioritizes the conversational workspace and exposes sources without blocking it.",
+  "next_actions": [
+    "Connect the presentation state to authenticated course, document, and RAG API endpoints."
+  ]
+}

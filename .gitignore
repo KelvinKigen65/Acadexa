@@ -1,0 +1,28 @@
+# Front-end dependencies and build output
+frontend/node_modules/
+frontend/dist/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Python / Django artifacts (reserved for the API service)
+backend/.venv/
+backend/venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+media/
+staticfiles/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Temporary recovery artifacts from interrupted patch operations
+*.orig
+
+# Local records and uploaded PDFs from the no-container development fallback
+backend/.dev-data/
