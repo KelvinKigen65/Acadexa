@@ -1,0 +1,12 @@
+{
+  "score": 96,
+  "verdict": "pass",
+  "category_match": true,
+  "differences": [],
+  "suggestions": [],
+  "reasoning": "The sidebar Upload control is a clearly visible medium primary action with a 38px target, 12px label, high-contrast fill, and hover/focus states.",
+  "threshold": 90,
+  "threshold_passed": true,
+  "next_actions": [
+    "No further visual edits required."
+  ]
