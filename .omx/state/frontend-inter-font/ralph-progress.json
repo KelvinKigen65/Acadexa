@@ -1,0 +1,13 @@
+{
+  "score": 96,
+  "verdict": "pass",
+  "category_match": true,
+  "differences": [],
+  "suggestions": [],
+  "reasoning": "Inter is applied throughout the interface, and the adjusted heading width preserves the intended two-line hierarchy.",
+  "threshold": 90,
+  "threshold_passed": true,
+  "next_actions": [
+    "No further visual edits required."
+  ]
+}

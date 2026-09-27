@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-:root { color: #182238; background: #f5f4f0; font-family: 'DM Sans', system-ui, sans-serif; font-synthesis: none; }
+:root { color: #182238; background: #f5f4f0; font-family: 'Inter', system-ui, sans-serif; font-synthesis: none; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
@@ -46,3 +46,9 @@ button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px sol
 
 /* Keep the primary document-upload action easy to find in the sidebar. */
 .sidebar-upload button { min-height: 38px; padding: 0 14px; border: 1px solid rgba(204,221,255,.42); border-radius: 7px; color: #fff; background: #5577bd; box-shadow: 0 3px 9px rgba(14,28,56,.24); font-size: 12px; font-weight: 700; line-height: 1; }.sidebar-upload button:hover { color: #fff; background: #6d90d6; box-shadow: 0 4px 12px rgba(14,28,56,.3); }.sidebar-upload button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Use Inter consistently for both interface and reading text. */
+.brand, .chat-heading h1, .message-copy, .message.user .message-copy, .empty-conversation h2, .inspector-header h2, .paper h3, .paper p, .auth-dialog h2, .topic-focus input { font-family: 'Inter', system-ui, sans-serif; }
+
+/* Preserve the welcome question's balanced two-line composition with Inter. */
+.chat-heading h1 { max-width: 575px; }

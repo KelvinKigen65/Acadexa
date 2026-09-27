@@ -153,6 +153,10 @@ function App() {
   const hasEvidence = evidenceSources.length > 0;
   const canPreviewSource = hasEvidence && !String(activeSource?.id ?? '').startsWith('chunk-');
 
+  const greetingName = account?.display_name?.trim() || '';
+  const welcomeQuestion = greetingName
+    ? `What are you working through, ${greetingName.split(/\s+/)[0]}?`
+    : 'What are you working through?';
   const notify = (message) => {
     setToast(message);
     window.setTimeout(() => setToast(''), 2600);
@@ -325,7 +329,7 @@ function App() {
         <div className="chat-stage">
           <div className="chat-heading">
             <p className="eyebrow">Source-grounded study assistant</p>
-            <h1>What are you working through?</h1>
+            <h1>{welcomeQuestion}</h1>
             <p>Ask about your course material. Every answer is designed to point you back to the page it came from.</p>
           </div>
 

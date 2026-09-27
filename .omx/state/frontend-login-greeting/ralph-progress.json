@@ -1,0 +1,13 @@
+{
+  "score": 97,
+  "verdict": "pass",
+  "category_match": true,
+  "differences": [],
+  "suggestions": [],
+  "reasoning": "The logged-out state uses the neutral welcome question, while the authenticated account's display name is conditionally inserted after login.",
+  "threshold": 90,
+  "threshold_passed": true,
+  "next_actions": [
+    "No further visual edits required."
+  ]
+}
