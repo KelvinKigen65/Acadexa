@@ -1,14 +1,22 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? `${window.location.protocol}//${window.location.hostname}:8000/api`;
 const ACCESS_TOKEN_KEY = 'acadexa.access-token';
 const REFRESH_TOKEN_KEY = 'acadexa.refresh-token';
+
+const TOKENLESS_AUTH_ENDPOINTS = new Set([
+  '/auth/register/',
+  '/auth/token/',
+  '/auth/token/refresh/',
+]);
 
 const client = axios.create({ baseURL: API_BASE_URL, timeout: 45000 });
 
 client.interceptors.request.use((config) => {
-  const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (!TOKENLESS_AUTH_ENDPOINTS.has(config.url)) {
+    const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
