@@ -25,5 +25,19 @@ npm run dev
 Then open the local URL printed by Vite (normally `http://localhost:5173`).
 
 ## Implementation boundary
+## Use the OpenAI API
+
+Ollama is not required. Copy the backend configuration template, add an OpenAI project API key, then start the stack with that file:
+
+```bash
+cp backend/.env.example backend/.env
+# Edit backend/.env and set OPENAI_API_KEY=...
+docker compose --env-file backend/.env up --build
+```
+
+The template enables OpenAI for both embeddings (`text-embedding-3-small`, shortened to this project's 384-dimensional pgvector column) and grounded answer generation (`gpt-4.1-mini`). The API key stays in `backend/.env`, which Git ignores. Existing documents that were indexed with the development-only `local_hash` provider must be uploaded again after the switch so they receive OpenAI embeddings.
+
+You can override the model or endpoints with the `EMBEDDING_*` and `LLM_*` variables if needed, but the standard OpenAI setup only requires `OPENAI_API_KEY`.
+
 
 The interface intentionally uses local presentation data. A production next step is to replace it with authenticated API calls for courses, uploads, and conversations; the conversation endpoint invokes Acadexa's internal RAG pipeline. Citations must continue to be generated from retrieved chunk metadata, never from model text alone.

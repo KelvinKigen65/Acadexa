@@ -21,8 +21,16 @@ services:
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       DATABASE_URL: postgresql://acadexa:acadexa@db:5432/acadexa
-      EMBEDDING_BACKEND: local_hash
-      LLM_BACKEND: none
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-local_hash}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-384}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api.openai.com/v1/embeddings}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      LLM_BACKEND: ${LLM_BACKEND:-none}
+      LLM_API_URL: ${LLM_API_URL:-https://api.openai.com/v1/chat/completions}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
     command: >
       sh -c "python manage.py migrate &&
       gunicorn acadexa.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"

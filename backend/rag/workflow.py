@@ -95,7 +95,7 @@ def extractive_answer(chunks: list[RetrievedChunk]) -> str:
 def generate_grounded_answer(question: str, chunks: list[RetrievedChunk]) -> tuple[str, str]:
     if settings.LLM_BACKEND == "none":
         return extractive_answer(chunks), "retrieval_only"
-    if settings.LLM_BACKEND != "external":
+    if settings.LLM_BACKEND not in {"external", "openai"}:
         raise ImproperlyConfigured(f"Unsupported LLM_BACKEND: {settings.LLM_BACKEND}")
     if not all([settings.LLM_API_URL, settings.LLM_API_KEY, settings.LLM_MODEL]):
         raise ImproperlyConfigured("External generation requires LLM_API_URL, LLM_API_KEY, and LLM_MODEL.")

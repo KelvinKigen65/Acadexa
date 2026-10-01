@@ -82,6 +82,6 @@ def embedding_provider():
         if not settings.DEBUG:
             raise ImproperlyConfigured("local_hash embeddings are development-only; configure an external provider for production.")
         return LocalHashEmbeddingProvider()
-    if settings.EMBEDDING_BACKEND == "external":
+    if settings.EMBEDDING_BACKEND in {"external", "openai"}:
         return OpenAICompatibleEmbeddingProvider()
     raise ImproperlyConfigured(f"Unsupported EMBEDDING_BACKEND: {settings.EMBEDDING_BACKEND}")

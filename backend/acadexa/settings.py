@@ -140,17 +140,28 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 30 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 30 * 1024 * 1024
 MAX_DOCUMENT_BYTES = 30 * 1024 * 1024
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
 EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "384"))
 if EMBEDDING_DIMENSIONS != 384:
     raise ValueError("EMBEDDING_DIMENSIONS is fixed at 384 for the initial pgvector migration.")
-EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", "local_hash" if DEBUG else "external")
-EMBEDDING_API_URL = os.getenv("EMBEDDING_API_URL", "")
-EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY", "")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "")
+EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", "local_hash" if DEBUG else "openai")
+EMBEDDING_API_URL = os.getenv(
+    "EMBEDDING_API_URL",
+    "https://api.openai.com/v1/embeddings" if EMBEDDING_BACKEND == "openai" else "",
+)
+EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY") or OPENAI_API_KEY
+EMBEDDING_MODEL = os.getenv(
+    "EMBEDDING_MODEL",
+    "text-embedding-3-small" if EMBEDDING_BACKEND == "openai" else "",
+)
 LLM_BACKEND = os.getenv("LLM_BACKEND", "none")
-LLM_API_URL = os.getenv("LLM_API_URL", "")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "")
+LLM_API_URL = os.getenv(
+    "LLM_API_URL",
+    "https://api.openai.com/v1/chat/completions" if LLM_BACKEND == "openai" else "",
+)
+LLM_API_KEY = os.getenv("LLM_API_KEY") or OPENAI_API_KEY
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4.1-mini" if LLM_BACKEND == "openai" else "")
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 RAG_MIN_RELEVANCE = float(os.getenv("RAG_MIN_RELEVANCE", "0.12"))
 
